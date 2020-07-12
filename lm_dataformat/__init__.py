@@ -2,22 +2,26 @@ import os
 import zstandard
 import json
 import time
+import tarfile
+import codecs
 
 
-def listdir(x):
-    return [x + '/' + fn for fn in os.listdir(x)]
+def listdir_or_file(x):
+    return [x] if os.path.isfile(x) else [x + '/' + fn for fn in os.listdir(x)]
 
 
 class Reader:
-    def __init__(self, in_dir):
-        self.in_dir = in_dir
+    def __init__(self, in_path):
+        self.in_path = in_path
     
     def stream_data(self):
-        for f in listdir(self.in_dir):
-            if f.endswith('.dat.zst'):
-                yield from self.read_dat(f)
-            elif f.endswith('.json.zst'):
-                yield from self.read_json(f)
+            for f in listdir_or_file(self.in_path):
+                if f == 'openwebtext.tar.xz':
+                    yield from self.read_owt(self.in_path)
+                elif f.endswith('.dat.zst'):
+                    yield from self.read_dat(f)
+                elif f.endswith('.json.zst'):
+                    yield from self.read_json(f)
 
     def read_json(self, file):
         with open(file, 'rb') as fh:
@@ -38,6 +42,19 @@ class Reader:
                 ln = int(ln)
 
                 yield reader.read(ln).decode('UTF-8')
+
+    def read_owt(self, file):
+        tar = tarfile.open(file, encoding='utf-8')
+        utf8reader = codecs.getreader('utf-8')
+
+        for name in tar.getmembers():
+            fp = tar.extractfile(name)
+            inner_tar = tarfile.open(fileobj=fp, encoding='utf-8')
+            for inner_name in inner_tar.getmembers():
+                inner_fp = utf8reader(inner_tar.extractfile(inner_name))
+                contents = inner_fp.read()
+                yield contents
+
 
 class Archive:
     def __init__(self, out_dir):
