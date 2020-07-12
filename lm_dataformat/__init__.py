@@ -15,13 +15,13 @@ class Reader:
         self.in_path = in_path
     
     def stream_data(self):
-            for f in listdir_or_file(self.in_path):
-                if f == 'openwebtext.tar.xz':
-                    yield from self.read_owt(self.in_path)
-                elif f.endswith('.dat.zst'):
-                    yield from self.read_dat(f)
-                elif f.endswith('.json.zst'):
-                    yield from self.read_json(f)
+        for f in listdir_or_file(self.in_path):
+            if f == 'openwebtext.tar.xz':
+                yield from self.read_owt(self.in_path)
+            elif f.endswith('.dat.zst'):
+                yield from self.read_dat(f)
+            elif f.endswith('.json.zst'):
+                yield from self.read_json(f)
 
     def read_json(self, file):
         with open(file, 'rb') as fh:
