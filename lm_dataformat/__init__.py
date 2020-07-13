@@ -17,7 +17,9 @@ class Reader:
     def stream_data(self):
         for f in listdir_or_file(self.in_path):
             if f == 'openwebtext.tar.xz':
-                yield from self.read_owt(self.in_path)
+                yield from self.read_owt(f)
+            elif 'urlsf_subset' in f and f.endswith('_data.xz'):
+                yield from self.read_owt_subset(f)
             elif f.endswith('.dat.zst'):
                 yield from self.read_dat(f)
             elif f.endswith('.json.zst'):
@@ -55,6 +57,14 @@ class Reader:
                 contents = inner_fp.read()
                 yield contents
 
+    def read_owt_subset(self, file):
+        print('reading', file)
+        utf8reader = codecs.getreader('utf-8')
+        tar = tarfile.open(file, encoding='utf-8')
+        for name in tar.getmembers():
+            fp = utf8reader(tar.extractfile(name))
+            contents = fp.read()
+            yield contents
 
 class Archive:
     def __init__(self, out_dir):
