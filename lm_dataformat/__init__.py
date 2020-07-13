@@ -61,7 +61,6 @@ class Reader:
                 yield contents
 
     def read_owt_subset(self, file):
-        print('reading', file)
         utf8reader = codecs.getreader('utf-8')
         tar = tarfile.open(file, encoding='utf-8')
         for name in tar.getmembers():
