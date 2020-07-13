@@ -4,9 +4,12 @@ import json
 import time
 import tarfile
 import codecs
+from functools import reduce
 
 
 def listdir_or_file(x):
+    if isinstance(x, list):
+        return reduce(lambda x,y:x+y, map(listdir_or_file, x))
     return [x] if os.path.isfile(x) else [x + '/' + fn for fn in os.listdir(x)]
 
 
