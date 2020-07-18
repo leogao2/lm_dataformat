@@ -60,16 +60,21 @@ class Reader:
 
                 yield reader.read(ln).decode('UTF-8')
 
-    def read_jsonl(self, file, get_meta):
+    def read_jsonl(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n'):
         with open(file, 'rb') as fh:
             cctx = zstandard.ZstdDecompressor()
             reader = io.BufferedReader(cctx.stream_reader(fh))
             rdr = jsonlines.Reader(reader)
             for ob in rdr:
+                text = ob['text']
+
+                if autojoin_paragraphs and isinstance(text, list):
+                    text = para_joiner.join(text)
+
                 if get_meta:
-                    yield ob['text'], (ob['meta'] if 'meta' in ob else {})
+                    yield text, (ob['meta'] if 'meta' in ob else {})
                 else:
-                    yield ob['text']
+                    yield text
 
     def read_owt(self, file):
         tar = tarfile.open(file, encoding='utf-8')
