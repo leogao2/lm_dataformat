@@ -98,26 +98,30 @@ class Reader:
 
 
 class Archive:
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, compression_level=3):
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
-        self.data = []
         self.i = 0
         if os.path.exists(out_dir) and len(os.listdir(out_dir)) > 0:
             self.i = max(map(lambda x: int(x.split('_')[1].split('.')[0]), os.listdir(out_dir))) + 1
+        
+        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
+        self.cctx = zstandard.ZstdCompressor(level=compression_level)
+        self.compressor = self.cctx.stream_writer(self.fh)
+        
     
     def add_data(self, data, meta={}):
-        self.data.append({'text': data, 'meta': meta})
+        self.compressor.write(json.dumps({'text': data, 'meta': meta}).encode('UTF-8') + b'\n')
     
     def commit(self, archive_name='default'):
-        cctx = zstandard.ZstdCompressor(level=3)
+        fname = self.out_dir + '/data_' + str(self.i) + '_time' + str(int(time.time())) + '_' + archive_name + '.jsonl.zst'
+        self.compressor.flush(zstandard.FLUSH_FRAME)
+        os.rename(self.out_dir + '/current_chunk_incomplete', fname)
         
-        cdata = cctx.compress('\n'.join(map(json.dumps, self.data)).encode('UTF-8'))
-        with open(self.out_dir + '/data_' + str(self.i) + '_time' + str(int(time.time())) + '_' + archive_name + '.jsonl.zst', 'wb') as fh:
-            fh.write(cdata)
+        self.fh.flush()
+        self.fh.close()
 
         self.i += 1
-        self.data = []
 
 
 class DatArchive:
