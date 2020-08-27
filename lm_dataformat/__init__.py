@@ -102,8 +102,6 @@ class Archive:
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
         self.i = 0
-        if os.path.exists(out_dir) and len(os.listdir(out_dir)) > 0:
-            self.i = max(map(lambda x: int(x.split('_')[1].split('.')[0]), os.listdir(out_dir))) + 1
         
         self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
         self.cctx = zstandard.ZstdCompressor(level=compression_level)
