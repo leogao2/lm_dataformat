@@ -116,10 +116,12 @@ class Archive:
     def commit(self, archive_name='default'):
         fname = self.out_dir + '/data_' + str(self.i) + '_time' + str(int(time.time())) + '_' + archive_name + '.jsonl.zst'
         self.compressor.flush(zstandard.FLUSH_FRAME)
-        os.rename(self.out_dir + '/current_chunk_incomplete', fname)
         
         self.fh.flush()
         self.fh.close()
+        os.rename(self.out_dir + '/current_chunk_incomplete', fname)
+        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
+        self.compressor = self.cctx.stream_writer(self.fh)
 
         self.i += 1
 
