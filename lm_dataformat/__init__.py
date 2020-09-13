@@ -39,6 +39,14 @@ class Reader:
                 assert not get_meta
 
                 yield from self.read_json(f)
+            elif f.endswith('.txt'):
+                assert not get_meta
+                
+                yield from self.read_txt(f)
+
+    def read_txt(self, file):
+        with open(file, 'r') as fh:
+            return fh.read()
 
     def read_json(self, file):
         with open(file, 'rb') as fh:
