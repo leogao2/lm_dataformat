@@ -5,6 +5,7 @@ install:
   - pip install pytest
   - pip install pytest-cov
   - pip install coveralls
+  - pip install .
 script:
   - pytest --cov=lm_dataformat/
 after_success:
