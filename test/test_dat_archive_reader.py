@@ -87,3 +87,11 @@ def test_txt_read():
     assert data[0] == blns
     assert len(data) == 1
 
+def test_zip_read():
+    reader = lmd.Reader('test/blns.txt.zip')
+    blns = open('test/blns.txt').read()
+
+    data = list(reader.stream_data(get_meta=False))
+
+    assert data[0] == blns
+    assert len(data) == 1

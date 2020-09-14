@@ -7,6 +7,7 @@ import codecs
 from functools import reduce
 import jsonlines
 import io
+from zipfile import ZipFile
 
 
 def listdir_or_file(x):
@@ -43,10 +44,19 @@ class Reader:
                 assert not get_meta
                 
                 yield from self.read_txt(f)
+            elif f.endswith('.zip'):
+                assert not get_meta
+
+                yield from self.read_zip(f)
 
     def read_txt(self, file):
         with open(file, 'r') as fh:
             yield fh.read()
+
+    def read_zip(self, file):
+        archive = ZipFile(file, 'r')
+        for f in archive.namelist():
+            yield archive.read(f).decode('UTF-8')
 
     def read_json(self, file):
         with open(file, 'rb') as fh:
