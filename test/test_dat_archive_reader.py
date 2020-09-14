@@ -77,3 +77,13 @@ def test_jsonl_paras():
     assert data[2] == (blns, {'testing2': 456, 'testing': ['a','b']})
     assert data[3] == ('testing 123456789', {})
     shutil.rmtree('test_dir')
+
+def test_txt_read():
+    reader = lmd.Reader('test/blns.txt')
+    blns = open('test/blns.txt').read()
+
+    data = list(reader.stream_data(get_meta=False))
+
+    assert data[0] == blns
+    assert len(data) == 1
+

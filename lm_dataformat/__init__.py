@@ -46,7 +46,7 @@ class Reader:
 
     def read_txt(self, file):
         with open(file, 'r') as fh:
-            return fh.read()
+            yield fh.read()
 
     def read_json(self, file):
         with open(file, 'rb') as fh:
