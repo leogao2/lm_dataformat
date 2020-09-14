@@ -27,6 +27,6 @@ To read:
 ```
 rdr = Reader('input_dir_or_file')
 
-for doc in ar.stream_data():
+for doc in rdr.stream_data():
   # do something with the document
 ```
