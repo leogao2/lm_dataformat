@@ -1,4 +1,4 @@
-# LM_Dataformat
+# LM_Dataformat [![Coverage Status](https://coveralls.io/repos/github/leogao2/lm_dataformat/badge.svg?branch=master)](https://coveralls.io/github/leogao2/lm_dataformat?branch=master)
 
 Utilities for storing data for LM training.
 
