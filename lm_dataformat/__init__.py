@@ -48,6 +48,10 @@ class Reader:
                 assert not get_meta
 
                 yield from self.read_zip(f)
+            elif f.endswith('.tar.gz'):
+                assert not get_meta
+
+                yield from self.read_tgz(f)
 
     def read_txt(self, file):
         with open(file, 'r') as fh:
@@ -57,6 +61,13 @@ class Reader:
         archive = ZipFile(file, 'r')
         for f in archive.namelist():
             yield archive.read(f).decode('UTF-8')
+
+    def read_tgz(self, file):
+        tar = tarfile.open(file, "r:gz")
+        for member in tar.getmembers():
+            f = tar.extractfile(member)
+            content = f.read()
+            yield content.decode('UTF-8')
 
     def read_json(self, file):
         with open(file, 'rb') as fh:
