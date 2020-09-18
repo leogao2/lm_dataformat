@@ -114,6 +114,12 @@ class Reader:
             reader = io.BufferedReader(cctx.stream_reader(fh))
             rdr = jsonlines.Reader(reader)
             for ob in rdr:
+                # naive jsonl where each object is just the string itself, with no meta. For legacy compatibility.
+                if isinstance(ob, str):
+                    assert not get_meta
+                    yield ob
+                    continue
+
                 text = ob['text']
 
                 if autojoin_paragraphs and isinstance(text, list):
