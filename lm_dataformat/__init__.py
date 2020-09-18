@@ -78,6 +78,9 @@ class Reader:
 
             # https://www.gnu.org/software/tar/manual/html_node/Standard.html
             # end at 135 not 136 because of \0 terminator
+            if hdr[124:135] == b'\0'*11:
+                # end of record
+                break
             size = int(hdr[124:135], 8)
 
             padded_size = ceil(size / 512) * 512

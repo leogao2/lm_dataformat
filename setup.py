@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="lm_dataformat", # Replace with your own username
-    version="0.0.12",
+    version="0.0.13",
     author="Leo Gao",
     author_email="leogao31@gmail.com",
     description="A utility for storing and reading files for LM training.",
