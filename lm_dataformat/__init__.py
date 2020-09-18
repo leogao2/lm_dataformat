@@ -8,6 +8,8 @@ from functools import reduce
 import jsonlines
 import io
 from zipfile import ZipFile
+import gzip
+from math import ceil
 
 
 def listdir_or_file(x):
@@ -63,11 +65,25 @@ class Reader:
             yield archive.read(f).decode('UTF-8')
 
     def read_tgz(self, file):
-        tar = tarfile.open(file, "r:gz")
-        for member in tar.getmembers():
-            f = tar.extractfile(member)
-            content = f.read()
-            yield content.decode('UTF-8')
+        gz = gzip.open(file)
+        # we need our own tarfile parser because `tarfile` doesn't work well for 
+        # big tarfiles; it seems to be reading the entire file to get a list of 
+        # where all the files are - but we don't need that because we just need 
+        # to see each file once. surprisingly, `tarfile` doesn't expose any 
+        # facilities for this. the only options are 1. load the entire tarfile 
+        # and then query by filename or 2. extract to disk - and neither of 
+        # these is what we want.
+        while True:
+            hdr = gz.read(512)
+
+            # https://www.gnu.org/software/tar/manual/html_node/Standard.html
+            # end at 135 not 136 because of \0 terminator
+            size = int(hdr[124:135], 8)
+
+            padded_size = ceil(size / 512) * 512
+
+            yield gz.read(padded_size)[:size].decode('utf-8')
+        
 
     def read_json(self, file):
         with open(file, 'rb') as fh:
