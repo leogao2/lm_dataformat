@@ -78,6 +78,22 @@ def test_jsonl_paras():
     assert data[3] == ('testing 123456789', {})
     shutil.rmtree('test_dir')
 
+def test_jsonl_tar():
+    blns = open('test/blns.txt').read()
+    reader = lmd.Reader('test/blns.jsonl.zst.tar')
+
+    data = list(reader.stream_data(get_meta=True))
+
+    assert data[0] == (blns, {})
+    assert data[1] == ('testing 123\n\ntesting 345', {'testing': 123})
+    assert data[2] == (blns, {'testing2': 456, 'testing': ['a','b']})
+    assert data[3] == ('testing 123456789', {})
+
+    assert data[4] == (blns, {})
+    assert data[5] == ('testing 123\n\ntesting 345', {'testing': 123})
+    assert data[6] == (blns, {'testing2': 456, 'testing': ['a','b']})
+    assert data[7] == ('testing 123456789', {})
+
 def test_txt_read():
     reader = lmd.Reader('test/blns.txt')
     blns = open('test/blns.txt').read()

@@ -17,6 +17,46 @@ def listdir_or_file(x):
         return reduce(lambda x,y:x+y, map(listdir_or_file, x))
     return [x] if os.path.isfile(x) else [x + '/' + fn for fn in os.listdir(x)]
 
+def tarfile_reader(file):
+    # we need our own tarfile parser because `tarfile` doesn't work well for 
+    # big tarfiles; it seems to be reading the entire file to get a list of 
+    # where all the files are - but we don't need that because we just need 
+    # to see each file once. surprisingly, `tarfile` doesn't expose any 
+    # facilities for this. the only options are 1. load the entire tarfile 
+    # and then query by filename or 2. extract to disk - and neither of 
+    # these is what we want.
+    while True:
+        hdr = file.read(512)
+
+        # https://www.gnu.org/software/tar/manual/html_node/Standard.html
+        # end at 135 not 136 because of \0 terminator
+        if hdr[124:135] == b'\0'*11:
+            # end of record
+            break
+        size = int(hdr[124:135], 8)
+
+        padded_size = ceil(size / 512) * 512
+
+        yield file.read(padded_size)[:size]
+
+def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner):
+    for ob in jsonl_reader:
+        # naive jsonl where each object is just the string itself, with no meta. For legacy compatibility.
+        if isinstance(ob, str):
+            assert not get_meta
+            yield ob
+            continue
+
+        text = ob['text']
+
+        if autojoin_paragraphs and isinstance(text, list):
+            text = para_joiner.join(text)
+
+        if get_meta:
+            yield text, (ob['meta'] if 'meta' in ob else {})
+        else:
+            yield text
+
 
 class Reader:
     def __init__(self, in_path):
@@ -38,6 +78,8 @@ class Reader:
                 yield from self.read_dat(f)
             elif f.endswith('.jsonl.zst'):
                 yield from self.read_jsonl(f, get_meta)
+            elif f.endswith('.jsonl.zst.tar'):
+                yield from self.read_jsonl_tar(f, get_meta)
             elif f.endswith('.json.zst'):
                 assert not get_meta
 
@@ -66,27 +108,7 @@ class Reader:
 
     def read_tgz(self, file):
         gz = gzip.open(file)
-        # we need our own tarfile parser because `tarfile` doesn't work well for 
-        # big tarfiles; it seems to be reading the entire file to get a list of 
-        # where all the files are - but we don't need that because we just need 
-        # to see each file once. surprisingly, `tarfile` doesn't expose any 
-        # facilities for this. the only options are 1. load the entire tarfile 
-        # and then query by filename or 2. extract to disk - and neither of 
-        # these is what we want.
-        while True:
-            hdr = gz.read(512)
-
-            # https://www.gnu.org/software/tar/manual/html_node/Standard.html
-            # end at 135 not 136 because of \0 terminator
-            if hdr[124:135] == b'\0'*11:
-                # end of record
-                break
-            size = int(hdr[124:135], 8)
-
-            padded_size = ceil(size / 512) * 512
-
-            yield gz.read(padded_size)[:size].decode('utf-8')
-        
+        yield from (x.decode('utf-8') for x in tarfile_reader(gz))
 
     def read_json(self, file):
         with open(file, 'rb') as fh:
@@ -113,22 +135,21 @@ class Reader:
             cctx = zstandard.ZstdDecompressor()
             reader = io.BufferedReader(cctx.stream_reader(fh))
             rdr = jsonlines.Reader(reader)
-            for ob in rdr:
-                # naive jsonl where each object is just the string itself, with no meta. For legacy compatibility.
-                if isinstance(ob, str):
-                    assert not get_meta
-                    yield ob
-                    continue
+            yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner)
 
-                text = ob['text']
 
-                if autojoin_paragraphs and isinstance(text, list):
-                    text = para_joiner.join(text)
+    def read_jsonl_tar(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n'):
+        with open(file, 'rb') as fh:
+            for f in tarfile_reader(fh):
+                # TODO: implement proper streaming so we don't have to read everything into memory at once
+                fh = io.BytesIO(f)
+                fh.seek(0)
 
-                if get_meta:
-                    yield text, (ob['meta'] if 'meta' in ob else {})
-                else:
-                    yield text
+                cctx = zstandard.ZstdDecompressor()
+                reader = io.BufferedReader(cctx.stream_reader(fh))
+                rdr = jsonlines.Reader(reader)
+                yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner)
+            
 
     def read_owt(self, file):
         tar = tarfile.open(file, encoding='utf-8')
