@@ -4,8 +4,8 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="lm_dataformat", # Replace with your own username
-    version="0.0.15",
+    name="lm_dataformat",
+    version="0.0.16",
     author="Leo Gao",
     author_email="leogao31@gmail.com",
     description="A utility for storing and reading files for LM training.",
