@@ -14,8 +14,8 @@ from math import ceil
 
 def listdir_or_file(x):
     if isinstance(x, list):
-        return reduce(lambda x,y:x+y, map(listdir_or_file, x))
-    return [x] if os.path.isfile(x) else [x + '/' + fn for fn in os.listdir(x)]
+        return reduce(lambda x,y:x+y, map(listdir_or_file, sorted(x)))
+    return [x] if os.path.isfile(x) else [x + '/' + fn for fn in sorted(os.listdir(x))]
 
 def tarfile_reader(file):
     # we need our own tarfile parser because `tarfile` doesn't work well for 
