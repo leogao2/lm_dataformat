@@ -26,7 +26,9 @@ def tarfile_reader(file, streaming=False):
     # facilities for this. the only options are 1. load the entire tarfile 
     # and then query by filename or 2. extract to disk - and neither of 
     # these is what we want.
+
     offset = 0
+    paxfilesize = None
     while True:
         hdr = file.read(512)
         offset += 512
@@ -36,9 +38,42 @@ def tarfile_reader(file, streaming=False):
         if hdr[124:135] == b'\0'*11:
             # end of record
             break
-        size = int(hdr[124:135], 8)
+        
+        fname = hdr[:100].split(b'\0')[0]
+
+        # if the file is too big to fit in the size field, tarfiles will actually 
+        # include a PaxHeader with the size in it, applicable to the immediate next file.
+        if paxfilesize is not None:
+            size = paxfilesize
+            paxfilesize = None
+        else:
+            size = int(hdr[124:135], 8)
 
         padded_size = ceil(size / 512) * 512
+
+        # for handling PaxHeader files (which contain extra metadata about file size) and directories
+        # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_03
+        type = chr(hdr[156])
+
+        if type == 'x':
+            meta = file.read(padded_size)[:size]
+            def kv(x):
+                return x.decode('utf-8').split(' ')[1].split('=')
+            paxfileattrs = {
+                kv(x)[0]: kv(x)[1] 
+                    for x in meta.split(b'\n') if x
+            }
+            paxfilesize = int(paxfileattrs['size'])
+
+            offset += padded_size
+            continue
+        elif type != '0' and type != '\0':
+            if streaming:
+                file.seek(padded_size, os.SEEK_CUR)
+            else:
+                file.read(padded_size)
+            offset += padded_size
+            continue
 
         if streaming:
             # skip directory entries
