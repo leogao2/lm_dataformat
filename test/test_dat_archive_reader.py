@@ -1,6 +1,12 @@
 import lm_dataformat as lmd
 
+import hashlib
 import shutil
+
+def sha256str(s):
+    h = hashlib.sha256()
+    h.update(s)
+    return h.hexdigest()
 
 def test_dat():
     archive = lmd.DatArchive('test_dir')
@@ -120,3 +126,17 @@ def test_tgz_read():
 
     assert data[0] == blns
     assert len(data) == 1
+
+def test_tarfile_reader():
+    rdr = lmd.tarfile_reader(open('test/testtarfile.tar', 'rb'), streaming=True)
+    
+    hashes = map(lambda doc: sha256str(doc.read()), rdr)
+
+    expected = [
+        '782588d891b1a836fcbd0bcd43227f83bf066d90245dd91d061f1b2c0e72fc9d',
+        'dc666c65cd421c688ed8542223c24d9e4a2e5276944f1e7cc296d43a57245498',
+        'c38af4ad8a9b901ea75d7cf60d452a233949f9e88b5fea04f80acde29d513d3e',
+        'fb3ecc0ad0b851dd3e9f0955805530b4946080f6e2a8e6aa0f67ba8209c2f779',
+    ]
+
+    assert all(map(lambda x: x[0] == x[1], zip(hashes, expected)))
