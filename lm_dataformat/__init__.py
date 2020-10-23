@@ -10,6 +10,7 @@ import io
 from zipfile import ZipFile
 import gzip
 from math import ceil
+import mmap
 
 
 def listdir_or_file(x):
@@ -17,7 +18,7 @@ def listdir_or_file(x):
         return reduce(lambda x,y:x+y, map(listdir_or_file, sorted(x)))
     return [x] if os.path.isfile(x) else [x + '/' + fn for fn in sorted(os.listdir(x))]
 
-def tarfile_reader(file):
+def tarfile_reader(file, streaming=False):
     # we need our own tarfile parser because `tarfile` doesn't work well for 
     # big tarfiles; it seems to be reading the entire file to get a list of 
     # where all the files are - but we don't need that because we just need 
@@ -25,8 +26,10 @@ def tarfile_reader(file):
     # facilities for this. the only options are 1. load the entire tarfile 
     # and then query by filename or 2. extract to disk - and neither of 
     # these is what we want.
+    offset = 0
     while True:
         hdr = file.read(512)
+        offset += 512
 
         # https://www.gnu.org/software/tar/manual/html_node/Standard.html
         # end at 135 not 136 because of \0 terminator
@@ -37,7 +40,17 @@ def tarfile_reader(file):
 
         padded_size = ceil(size / 512) * 512
 
-        yield file.read(padded_size)[:size]
+        if streaming:
+            # skip directory entries
+            if size != 0:
+                mmo = mmap.mmap(file.fileno(), length=offset + size, access=mmap.ACCESS_READ)
+                mmo.seek(offset)
+                yield mmo
+
+            file.seek(padded_size, os.SEEK_CUR)
+        else:
+            yield file.read(padded_size)[:size]
+        offset += padded_size
 
 def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner):
     for ob in jsonl_reader:
@@ -108,7 +121,7 @@ class Reader:
 
     def read_tgz(self, file):
         gz = gzip.open(file)
-        yield from (x.decode('utf-8') for x in tarfile_reader(gz))
+        yield from (x.decode('utf-8') for x in tarfile_reader(gz, streaming=False))
 
     def read_json(self, file):
         with open(file, 'rb') as fh:
@@ -140,15 +153,12 @@ class Reader:
 
     def read_jsonl_tar(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n'):
         with open(file, 'rb') as fh:
-            for f in tarfile_reader(fh):
-                # TODO: implement proper streaming so we don't have to read everything into memory at once
-                fh = io.BytesIO(f)
-                fh.seek(0)
-
+            for f in tarfile_reader(fh, streaming=True):
                 cctx = zstandard.ZstdDecompressor()
-                reader = io.BufferedReader(cctx.stream_reader(fh))
+                reader = io.BufferedReader(cctx.stream_reader(f))
                 rdr = jsonlines.Reader(reader)
                 yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner)
+                f.close()
             
 
     def read_owt(self, file):
