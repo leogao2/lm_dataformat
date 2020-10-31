@@ -109,9 +109,10 @@ def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner):
 class Reader:
     def __init__(self, in_path):
         self.in_path = in_path
-    
+        self.f_name = ""
     def stream_data(self, get_meta=False):
         for f in listdir_or_file(self.in_path):
+            self.f_name = f
             if f == 'openwebtext.tar.xz':
                 assert not get_meta
 
