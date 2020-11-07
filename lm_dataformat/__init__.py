@@ -128,7 +128,9 @@ class Reader:
         q.put(None)
 
     def _stream_data(self, get_meta=False):
+        self.f_name = ""
         for f in listdir_or_file(self.in_path):
+            self.f_name = f
             if f == 'openwebtext.tar.xz':
                 assert not get_meta
 
