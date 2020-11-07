@@ -114,7 +114,7 @@ class Reader:
     def stream_data(self, get_meta=False, threaded=True):
         if not threaded: return self._stream_data(get_meta)
 
-        q = mp.Queue()
+        q = mp.Queue(1000)
         p = mp.Process(target=self._stream_data_threaded, args=(q, get_meta))
         p.start()
         while p.is_alive():
