@@ -243,7 +243,7 @@ class Archive:
         self.i = 0
         
         self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
-        self.cctx = zstandard.ZstdCompressor(level=compression_level)
+        self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=8)
         self.compressor = self.cctx.stream_writer(self.fh)
         
     
