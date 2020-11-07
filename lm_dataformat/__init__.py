@@ -11,6 +11,7 @@ from zipfile import ZipFile
 import gzip
 from math import ceil
 import mmap
+import multiprocessing as mp
 
 
 def listdir_or_file(x):
@@ -110,7 +111,23 @@ class Reader:
     def __init__(self, in_path):
         self.in_path = in_path
     
-    def stream_data(self, get_meta=False):
+    def stream_data(self, get_meta=False, threaded=True):
+        if not threaded: return self._stream_data(get_meta)
+
+        q = mp.Queue()
+        p = mp.Process(target=self._stream_data_threaded, args=(q, get_meta))
+        p.start()
+        while p.is_alive():
+            res = q.get()
+            if res is None: break
+            yield res
+    
+    def _stream_data_threaded(self, q, get_meta=False):
+        for data in self._stream_data(get_meta):
+            q.put(data)
+        q.put(None)
+
+    def _stream_data(self, get_meta=False):
         for f in listdir_or_file(self.in_path):
             if f == 'openwebtext.tar.xz':
                 assert not get_meta
