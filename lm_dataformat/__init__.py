@@ -1,6 +1,6 @@
 import os
 import zstandard
-import json
+import ujson as json
 import time
 import tarfile
 import codecs
