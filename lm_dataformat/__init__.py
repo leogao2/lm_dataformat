@@ -111,7 +111,7 @@ class Reader:
     def __init__(self, in_path):
         self.in_path = in_path
     
-    def stream_data(self, get_meta=False, threaded=True):
+    def stream_data(self, get_meta=False, threaded=False):
         if not threaded:
             yield from self._stream_data(get_meta)
             return
