@@ -112,7 +112,9 @@ class Reader:
         self.in_path = in_path
     
     def stream_data(self, get_meta=False, threaded=True):
-        if not threaded: return self._stream_data(get_meta)
+        if not threaded:
+            yield from self._stream_data(get_meta)
+            return
 
         q = mp.Queue(1000)
         p = mp.Process(target=self._stream_data_threaded, args=(q, get_meta))
