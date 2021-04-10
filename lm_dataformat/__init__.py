@@ -88,7 +88,7 @@ def tarfile_reader(file, streaming=False):
             yield file.read(padded_size)[:size]
         offset += padded_size
 
-def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner):
+def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner, key='text'):
     for ob in jsonl_reader:
         # naive jsonl where each object is just the string itself, with no meta. For legacy compatibility.
         if isinstance(ob, str):
@@ -96,7 +96,7 @@ def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner):
             yield ob
             continue
 
-        text = ob['text']
+        text = ob[key]
 
         if autojoin_paragraphs and isinstance(text, list):
             text = para_joiner.join(text)
@@ -199,21 +199,21 @@ class Reader:
 
                 yield reader.read(ln).decode('UTF-8')
 
-    def read_jsonl(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n'):
+    def read_jsonl(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n', key='text'):
         with open(file, 'rb') as fh:
             cctx = zstandard.ZstdDecompressor()
             reader = io.BufferedReader(cctx.stream_reader(fh))
             rdr = jsonlines.Reader(reader)
-            yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner)
+            yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner, key)
 
 
-    def read_jsonl_tar(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n'):
+    def read_jsonl_tar(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n', key='text'):
         with open(file, 'rb') as fh:
             for f in tarfile_reader(fh, streaming=True):
                 cctx = zstandard.ZstdDecompressor()
                 reader = io.BufferedReader(cctx.stream_reader(f))
                 rdr = jsonlines.Reader(reader)
-                yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner)
+                yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner, key)
                 f.close()
             
 
