@@ -129,7 +129,7 @@ class Reader:
             q.put(data)
         q.put(None)
 
-    def _stream_data(self, get_meta=False):
+    def _stream_data(self, get_meta=False, jsonl_key="text"):
         self.f_name = ""
         for f in listdir_or_file(self.in_path):
             self.f_name = f
@@ -146,9 +146,9 @@ class Reader:
 
                 yield from self.read_dat(f)
             elif f.endswith('.jsonl.zst'):
-                yield from self.read_jsonl(f, get_meta)
+                yield from self.read_jsonl(f, get_meta, jsonl_key=key)
             elif f.endswith('.jsonl.zst.tar'):
-                yield from self.read_jsonl_tar(f, get_meta)
+                yield from self.read_jsonl_tar(f, get_meta, jsonl_key=key)
             elif f.endswith('.json.zst'):
                 assert not get_meta
 
