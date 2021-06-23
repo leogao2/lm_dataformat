@@ -165,7 +165,7 @@ class Reader:
                 assert not get_meta
 
                 yield from self.read_tgz(f)
-            elif f.endswith('.jzon.gz'):
+            elif f.endswith('.json.gz'):
                 assert not get_meta
                 
                 yield from self.read_jsongz(f)
