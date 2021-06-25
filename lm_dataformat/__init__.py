@@ -165,6 +165,16 @@ class Reader:
                 assert not get_meta
 
                 yield from self.read_tgz(f)
+            elif f.endswith('.json.gz'):
+                assert not get_meta
+                
+                yield from self.read_jsongz(f)
+            elif f.endswith('.gz'):
+                assert not get_meta
+               
+                yield from self.read_gz(f)
+            else:
+                print(f'Skipping {f} as streaming for that filetype is not implemented')
 
     def read_txt(self, file):
         with open(file, 'r') as fh:
@@ -178,7 +188,16 @@ class Reader:
     def read_tgz(self, file):
         gz = gzip.open(file)
         yield from (x.decode('utf-8') for x in tarfile_reader(gz, streaming=False))
-
+    
+    def read_gz(self, file): 
+        with gzip.open(file, 'rb') as f:
+            for line in f:
+                yield line.decode('utf-8')
+                
+    def read_jsongz(self, file): 
+        for line in self.read_gz(file):
+            yield json.loads(line)
+                
     def read_json(self, file):
         with open(file, 'rb') as fh:
             cctx = zstandard.ZstdDecompressor()
