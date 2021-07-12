@@ -146,9 +146,9 @@ class Reader:
 
                 yield from self.read_dat(f)
             elif f.endswith('.jsonl.zst'):
-                yield from self.read_jsonl(f, get_meta, jsonl_key=key)
+                yield from self.read_jsonl(f, get_meta, key=key)
             elif f.endswith('.jsonl.zst.tar'):
-                yield from self.read_jsonl_tar(f, get_meta, jsonl_key=key)
+                yield from self.read_jsonl_tar(f, get_meta, key=key)
             elif f.endswith('.json.zst'):
                 assert not get_meta
 
