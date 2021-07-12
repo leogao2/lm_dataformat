@@ -129,7 +129,7 @@ class Reader:
             q.put(data)
         q.put(None)
 
-    def _stream_data(self, get_meta=False, jsonl_key="text"):
+    def _stream_data(self, get_meta=False, key="text"):
         self.f_name = ""
         for f in listdir_or_file(self.in_path):
             self.f_name = f
