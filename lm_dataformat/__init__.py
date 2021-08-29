@@ -12,12 +12,25 @@ import gzip
 from math import ceil
 import mmap
 import multiprocessing as mp
+from pathlib import Path
 
+VALID_EXTENSIONS = ['openwebtext.tar.xz', '_data.xz', '.dat.zst', '.jsonl', '.jsonl.zst', '.jsonl.zst.tar', '.json.zst', '.txt', '.zip', '.tar.gz', '.json.gz', '.gz']
+
+def has_valid_extension(file):
+    return any([file.endswith(ext) for ext in VALID_EXTENSIONS])
+
+def _listdir_or_file(x):
+    if isinstance(x, list):
+        return reduce(lambda x, y: x + y, map(listdir_or_file, sorted(x)))
+    if os.path.isfile(x):
+        return [x]
+    elif os.path.isdir(x):
+        return [str(Path(x) / fn) for fn in sorted(os.listdir(x))]
+    else:
+        raise FileNotFoundError(f"{x} not found")
 
 def listdir_or_file(x):
-    if isinstance(x, list):
-        return reduce(lambda x,y:x+y, map(listdir_or_file, sorted(x)))
-    return [x] if os.path.isfile(x) else [x + '/' + fn for fn in sorted(os.listdir(x))]
+    return list(filter(has_valid_extension, _listdir_or_file(x)))
 
 def tarfile_reader(file, streaming=False):
     # we need our own tarfile parser because `tarfile` doesn't work well for 
@@ -131,7 +144,10 @@ class Reader:
 
     def _stream_data(self, get_meta=False, jsonl_key="text"):
         self.f_name = ""
-        for f in listdir_or_file(self.in_path):
+        files = listdir_or_file(self.in_path)
+        if not files:
+            raise FileNotFoundError(f"No valid file(s) found in {self.in_path}")
+        for f in files:
             self.f_name = f
             if f == 'openwebtext.tar.xz':
                 assert not get_meta
@@ -145,8 +161,10 @@ class Reader:
                 assert not get_meta
 
                 yield from self.read_dat(f)
+            elif f.endswith('.jsonl'):
+                yield from self.read_jsonl(f, get_meta, key=jsonl_key)
             elif f.endswith('.jsonl.zst'):
-                yield from self.read_jsonl(f, get_meta, jsonl_key=key)
+                yield from self.read_jsonl_zst(f, get_meta, key=jsonl_key)
             elif f.endswith('.jsonl.zst.tar'):
                 yield from self.read_jsonl_tar(f, get_meta, jsonl_key=key)
             elif f.endswith('.json.zst'):
@@ -174,6 +192,7 @@ class Reader:
                
                 yield from self.read_gz(f)
             else:
+                # shouldn't be reached
                 print(f'Skipping {f} as streaming for that filetype is not implemented')
 
     def read_txt(self, file):
@@ -219,12 +238,15 @@ class Reader:
                 yield reader.read(ln).decode('UTF-8')
 
     def read_jsonl(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n', key='text'):
+        with jsonlines.open(file) as rdr:
+            yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner, key)
+            
+    def read_jsonl_zst(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n', key='text'):
         with open(file, 'rb') as fh:
             cctx = zstandard.ZstdDecompressor()
             reader = io.BufferedReader(cctx.stream_reader(fh))
             rdr = jsonlines.Reader(reader)
             yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner, key)
-
 
     def read_jsonl_tar(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n', key='text'):
         with open(file, 'rb') as fh:
@@ -235,7 +257,6 @@ class Reader:
                 yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner, key)
                 f.close()
             
-
     def read_owt(self, file):
         tar = tarfile.open(file, encoding='utf-8')
         utf8reader = codecs.getreader('utf-8')
