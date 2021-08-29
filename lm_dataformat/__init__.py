@@ -145,8 +145,10 @@ class Reader:
                 assert not get_meta
 
                 yield from self.read_dat(f)
-            elif f.endswith('.jsonl.zst'):
+            elif f.endswith('.jsonl'):
                 yield from self.read_jsonl(f, get_meta, jsonl_key=key)
+            elif f.endswith('.jsonl.zst'):
+                yield from self.read_jsonl_zst(f, get_meta, jsonl_key=key)
             elif f.endswith('.jsonl.zst.tar'):
                 yield from self.read_jsonl_tar(f, get_meta, jsonl_key=key)
             elif f.endswith('.json.zst'):
@@ -219,6 +221,10 @@ class Reader:
                 yield reader.read(ln).decode('UTF-8')
 
     def read_jsonl(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n', key='text'):
+        with jsonlines.open(file) as rdr:
+            yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner, key)
+            
+    def read_jsonl_zst(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n', key='text'):
         with open(file, 'rb') as fh:
             cctx = zstandard.ZstdDecompressor()
             reader = io.BufferedReader(cctx.stream_reader(fh))
