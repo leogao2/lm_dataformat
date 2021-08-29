@@ -12,6 +12,7 @@ import gzip
 from math import ceil
 import mmap
 import multiprocessing as mp
+from pathlib import Path
 
 VALID_EXTENSIONS = ['openwebtext.tar.xz', '_data.xz', '.dat.zst', '.jsonl', '.jsonl.zst', '.jsonl.zst.tar', '.json.zst', '.txt', '.zip', '.tar.gz', '.json.gz', '.gz']
 
