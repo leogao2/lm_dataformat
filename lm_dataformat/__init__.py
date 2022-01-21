@@ -279,13 +279,13 @@ class Reader:
 
 
 class Archive:
-    def __init__(self, out_dir, compression_level=3):
+    def __init__(self, out_dir, compression_level=3, threads=8):
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
         self.i = 0
         
         self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
-        self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=8)
+        self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=threads)
         self.compressor = self.cctx.stream_writer(self.fh)
         
     
