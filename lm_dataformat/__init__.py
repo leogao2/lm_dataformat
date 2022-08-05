@@ -124,13 +124,13 @@ class Reader:
     def __init__(self, in_path):
         self.in_path = in_path
     
-    def stream_data(self, get_meta=False, threaded=False):
+    def stream_data(self, get_meta=False, threaded=False, key="text"):
         if not threaded:
-            yield from self._stream_data(get_meta)
+            yield from self._stream_data(get_meta, key=key)
             return
 
         q = mp.Queue(1000)
-        p = mp.Process(target=self._stream_data_threaded, args=(q, get_meta))
+        p = mp.Process(target=self._stream_data_threaded, args=(q, get_meta), kwargs={"key": key})
         p.start()
         while p.is_alive():
             res = q.get()
@@ -142,7 +142,7 @@ class Reader:
             q.put(data)
         q.put(None)
 
-    def _stream_data(self, get_meta=False, jsonl_key="text"):
+    def _stream_data(self, get_meta=False, key="text"):
         self.f_name = ""
         files = listdir_or_file(self.in_path)
         if not files:
@@ -162,11 +162,11 @@ class Reader:
 
                 yield from self.read_dat(f)
             elif f.endswith('.jsonl'):
-                yield from self.read_jsonl(f, get_meta, key=jsonl_key)
+                yield from self.read_jsonl(f, get_meta, key=key)
             elif f.endswith('.jsonl.zst'):
-                yield from self.read_jsonl_zst(f, get_meta, key=jsonl_key)
+                yield from self.read_jsonl_zst(f, get_meta, key=key)
             elif f.endswith('.jsonl.zst.tar'):
-                yield from self.read_jsonl_tar(f, get_meta, jsonl_key=key)
+                yield from self.read_jsonl_tar(f, get_meta, key=key)
             elif f.endswith('.json.zst'):
                 assert not get_meta
 
