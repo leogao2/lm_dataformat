@@ -124,9 +124,9 @@ class Reader:
     def __init__(self, in_path):
         self.in_path = in_path
     
-    def stream_data(self, get_meta=False, threaded=False):
+    def stream_data(self, get_meta=False, threaded=False, jsonl_key='text'):
         if not threaded:
-            yield from self._stream_data(get_meta)
+            yield from self._stream_data(get_meta=get_meta, jsonl_key=jsonl_key)
             return
 
         q = mp.Queue(1000)
