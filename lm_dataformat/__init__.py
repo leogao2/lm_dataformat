@@ -14,7 +14,7 @@ import mmap
 import multiprocessing as mp
 from pathlib import Path
 
-VALID_EXTENSIONS = ['openwebtext.tar.xz', '_data.xz', '.dat.zst', '.jsonl', '.jsonl.zst', '.jsonl.zst.tar', '.json.zst', '.txt', '.zip', '.tar.gz', '.json.gz', '.gz']
+VALID_EXTENSIONS = ['openwebtext.tar.xz', '_data.xz', '.dat.zst', '.jsonl', '.jsonl.zst', '.jsonl.zst.tar', '.json.zst', '.txt', '.zip', '.tar.gz', '.json.gz', '.gz','.json']
 
 def has_valid_extension(file):
     return any([file.endswith(ext) for ext in VALID_EXTENSIONS])
@@ -104,6 +104,10 @@ def tarfile_reader(file, streaming=False):
 def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner, key='text'):
     for ob in jsonl_reader:
         # naive jsonl where each object is just the string itself, with no meta. For legacy compatibility.
+        if get_meta:
+            yield ob
+            continue
+            
         if isinstance(ob, str):
             assert not get_meta
             yield ob
@@ -114,19 +118,21 @@ def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner, key='
         if autojoin_paragraphs and isinstance(text, list):
             text = para_joiner.join(text)
 
-        if get_meta:
-            yield text, (ob['meta'] if 'meta' in ob else {})
-        else:
-            yield text
+        # if get_meta:
+            # yield text, (ob['meta'] if 'meta' in ob else {})
+            # yield text, ob
+        # else:
+            # yield text
+        yield text
 
 
 class Reader:
     def __init__(self, in_path):
         self.in_path = in_path
     
-    def stream_data(self, get_meta=False, threaded=False):
+    def stream_data(self, get_meta=False, threaded=False, jsonl_key="text"):
         if not threaded:
-            yield from self._stream_data(get_meta)
+            yield from self._stream_data(get_meta, jsonl_key)
             return
 
         q = mp.Queue(1000)
@@ -137,8 +143,8 @@ class Reader:
             if res is None: break
             yield res
     
-    def _stream_data_threaded(self, q, get_meta=False):
-        for data in self._stream_data(get_meta):
+    def _stream_data_threaded(self, q, get_meta=False, jsonl_key="text"):
+        for data in self._stream_data(get_meta, jsonl_key):
             q.put(data)
         q.put(None)
 
@@ -161,12 +167,12 @@ class Reader:
                 assert not get_meta
 
                 yield from self.read_dat(f)
-            elif f.endswith('.jsonl'):
+            elif f.endswith('.jsonl') or f.endswith(".json"):
                 yield from self.read_jsonl(f, get_meta, key=jsonl_key)
             elif f.endswith('.jsonl.zst'):
                 yield from self.read_jsonl_zst(f, get_meta, key=jsonl_key)
             elif f.endswith('.jsonl.zst.tar'):
-                yield from self.read_jsonl_tar(f, get_meta, jsonl_key=key)
+                yield from self.read_jsonl_tar(f, get_meta, key=jsonl_key)
             elif f.endswith('.json.zst'):
                 assert not get_meta
 
@@ -288,7 +294,6 @@ class Archive:
         self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=threads)
         self.compressor = self.cctx.stream_writer(self.fh)
         
-    
     def add_data(self, data, meta={}):
         self.compressor.write(json.dumps({'text': data, 'meta': meta}).encode('UTF-8') + b'\n')
     
