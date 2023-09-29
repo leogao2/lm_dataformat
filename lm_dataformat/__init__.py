@@ -367,11 +367,11 @@ class JSONArchive:
     def add_data(self, data):
         self.data.append(data)
 
-    def commit(self, name):
+    def commit(self, archive_name):
         cctx = zstandard.ZstdCompressor(level=3)
 
         cdata = cctx.compress(json.dumps(self.data).encode('UTF-8'))
-        with open(self.out_dir + '/data_' + str(self.i) + '_' + str(int(time.time())) + '.json.zst', 'wb') as fh:
+        with open(self.out_dir + '/data_' + str(self.i) + '_' + archive_name + '.json.zst', 'wb') as fh:
             fh.write(cdata)
 
         self.i += 1
@@ -413,7 +413,7 @@ class TextArchive:
         return out_str
 
     def commit(self, archive_name):
-        fname = self.out_dir + '/data' + '_time' + str(int(time.time())) + '_' + archive_name + '.txt.zip'
+        fname = self.out_dir + '/data' + '_' + archive_name + '.txt.zip'
         with zipfile.ZipFile(fname, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for idx, example in enumerate(self.data):
                 filename = 'data_' + str(idx) + '_' + str(int(time.time())) + '.txt'
