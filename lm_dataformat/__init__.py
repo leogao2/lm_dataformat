@@ -30,13 +30,6 @@ SUPPORTED_FORMATS = [
 ]
 
 
-def filter_newlines(text):
-    return re.sub("\n{3,}", "\n\n", text)
-
-def handle_unicode_errors(txt):
-    return txt.encode('utf-8', 'replace').decode()
-
-
 def has_valid_extension(file):
     return any([file.endswith(ext) for ext in VALID_EXTENSIONS])
 
@@ -316,8 +309,7 @@ class Archive:
         self.compressor = self.cctx.stream_writer(self.fh)
 
     def add_data(self, data, meta={}):
-        out_str = TextArchive.to_text(data)
-        self.compressor.write(json.dumps({'text': out_str, 'meta': meta}).encode('UTF-8') + b'\n')
+        self.compressor.write(json.dumps({'text': data, 'meta': meta}).encode('UTF-8') + b'\n')
 
     def commit(self, archive_name='default'):
         fname = self.out_dir + '/data_' + str(self.i) + '_time' + str(
@@ -343,7 +335,7 @@ class DatArchive:
             self.i = max(map(lambda x: int(x.split('_')[1].split('.')[0]), os.listdir(out_dir))) + 1
 
     def add_data(self, data):
-        self.data.append(TextArchive.to_text(data))
+        self.data.append(data)
 
     def commit(self, archive_name=None):
         # TODO: streaming
@@ -396,6 +388,15 @@ class TextArchive:
         self.data.append(TextArchive.to_text(data))
 
     @staticmethod
+    def filter_newlines(text):
+        return re.sub("\n{3,}", "\n\n", text)
+
+    @staticmethod
+    def handle_unicode_errors(txt):
+        return txt.encode('utf-8', 'replace').decode()
+
+
+    @staticmethod
     def to_text(data):
         out_str = ""
         out_str += 'Q:\n\n'
@@ -405,9 +406,9 @@ class TextArchive:
             out_str += 'A:\n\n{}\n\n'.format(answer['body'])
 
         try:
-            out_str = filter_newlines(out_str)
+            out_str = TextArchive.filter_newlines(out_str)
         except:
-            out_str = filter_newlines(handle_unicode_errors(out_str))
+            out_str = TextArchive.filter_newlines(TextArchive.handle_unicode_errors(out_str))
 
         return out_str
 
