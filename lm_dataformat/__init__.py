@@ -1,23 +1,45 @@
-import os
-import zstandard
-import ujson as json
-import time
-import tarfile
 import codecs
-from functools import reduce
-import jsonlines
-import io
-from zipfile import ZipFile
 import gzip
-from math import ceil
+import io
 import mmap
 import multiprocessing as mp
+import os
+import re
+import tarfile
+import time
+from functools import reduce
+from math import ceil
 from pathlib import Path
+import zipfile
 
-VALID_EXTENSIONS = ['openwebtext.tar.xz', '_data.xz', '.dat.zst', '.jsonl', '.jsonl.zst', '.jsonl.zst.tar', '.json.zst', '.txt', '.zip', '.tar.gz', '.json.gz', '.gz']
+import jsonlines
+import ujson as json
+import zstandard
+
+VALID_EXTENSIONS = ['openwebtext.tar.xz', '_data.xz', '.dat.zst', '.jsonl', '.jsonl.zst', '.jsonl.zst.tar', '.json.zst',
+                    '.txt', '.zip', '.tar.gz', '.json.gz', '.gz']
+
+LM_DATAFORMAT_FORMAT = "lm_dataformat"
+TEXT_FORMAT = "txt"
+JSON_FORMAT = "json"
+
+SUPPORTED_FORMATS = [
+    TEXT_FORMAT,
+    LM_DATAFORMAT_FORMAT,
+    JSON_FORMAT
+]
+
+
+def filter_newlines(text):
+    return re.sub("\n{3,}", "\n\n", text)
+
+def handle_unicode_errors(txt):
+    return txt.encode('utf-8', 'replace').decode()
+
 
 def has_valid_extension(file):
     return any([file.endswith(ext) for ext in VALID_EXTENSIONS])
+
 
 def _listdir_or_file(x):
     if isinstance(x, list):
@@ -29,8 +51,10 @@ def _listdir_or_file(x):
     else:
         raise FileNotFoundError(f"{x} not found")
 
+
 def listdir_or_file(x):
     return list(filter(has_valid_extension, _listdir_or_file(x)))
+
 
 def tarfile_reader(file, streaming=False):
     # we need our own tarfile parser because `tarfile` doesn't work well for 
@@ -49,10 +73,10 @@ def tarfile_reader(file, streaming=False):
 
         # https://www.gnu.org/software/tar/manual/html_node/Standard.html
         # end at 135 not 136 because of \0 terminator
-        if hdr[124:135] == b'\0'*11:
+        if hdr[124:135] == b'\0' * 11:
             # end of record
             break
-        
+
         fname = hdr[:100].split(b'\0')[0]
 
         # if the file is too big to fit in the size field, tarfiles will actually 
@@ -71,11 +95,13 @@ def tarfile_reader(file, streaming=False):
 
         if type == 'x':
             meta = file.read(padded_size)[:size]
+
             def kv(x):
                 return x.decode('utf-8').split(' ')[1].split('=')
+
             paxfileattrs = {
-                kv(x)[0]: kv(x)[1] 
-                    for x in meta.split(b'\n') if x
+                kv(x)[0]: kv(x)[1]
+                for x in meta.split(b'\n') if x
             }
             paxfilesize = int(paxfileattrs['size'])
 
@@ -101,6 +127,7 @@ def tarfile_reader(file, streaming=False):
             yield file.read(padded_size)[:size]
         offset += padded_size
 
+
 def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner, key='text'):
     for ob in jsonl_reader:
         # naive jsonl where each object is just the string itself, with no meta. For legacy compatibility.
@@ -123,7 +150,7 @@ def handle_jsonl(jsonl_reader, get_meta, autojoin_paragraphs, para_joiner, key='
 class Reader:
     def __init__(self, in_path):
         self.in_path = in_path
-    
+
     def stream_data(self, get_meta=False, threaded=False):
         if not threaded:
             yield from self._stream_data(get_meta)
@@ -136,7 +163,7 @@ class Reader:
             res = q.get()
             if res is None: break
             yield res
-    
+
     def _stream_data_threaded(self, q, get_meta=False):
         for data in self._stream_data(get_meta):
             q.put(data)
@@ -166,14 +193,14 @@ class Reader:
             elif f.endswith('.jsonl.zst'):
                 yield from self.read_jsonl_zst(f, get_meta, key=jsonl_key)
             elif f.endswith('.jsonl.zst.tar'):
-                yield from self.read_jsonl_tar(f, get_meta, jsonl_key=key)
+                yield from self.read_jsonl_tar(f, get_meta, key=jsonl_key)
             elif f.endswith('.json.zst'):
                 assert not get_meta
 
                 yield from self.read_json(f)
             elif f.endswith('.txt'):
                 assert not get_meta
-                
+
                 yield from self.read_txt(f)
             elif f.endswith('.zip'):
                 assert not get_meta
@@ -185,11 +212,11 @@ class Reader:
                 yield from self.read_tgz(f)
             elif f.endswith('.json.gz'):
                 assert not get_meta
-                
+
                 yield from self.read_jsongz(f)
             elif f.endswith('.gz'):
                 assert not get_meta
-               
+
                 yield from self.read_gz(f)
             else:
                 # shouldn't be reached
@@ -200,23 +227,23 @@ class Reader:
             yield fh.read()
 
     def read_zip(self, file):
-        archive = ZipFile(file, 'r')
+        archive = zipfile.ZipFile(file, 'r')
         for f in archive.namelist():
             yield archive.read(f).decode('UTF-8')
 
     def read_tgz(self, file):
         gz = gzip.open(file)
         yield from (x.decode('utf-8') for x in tarfile_reader(gz, streaming=False))
-    
-    def read_gz(self, file): 
+
+    def read_gz(self, file):
         with gzip.open(file, 'rb') as f:
             for line in f:
                 yield line.decode('utf-8')
-                
-    def read_jsongz(self, file): 
+
+    def read_jsongz(self, file):
         for line in self.read_gz(file):
             yield json.loads(line)
-                
+
     def read_json(self, file):
         with open(file, 'rb') as fh:
             cctx = zstandard.ZstdDecompressor()
@@ -240,7 +267,7 @@ class Reader:
     def read_jsonl(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n', key='text'):
         with jsonlines.open(file) as rdr:
             yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner, key)
-            
+
     def read_jsonl_zst(self, file, get_meta=False, autojoin_paragraphs=True, para_joiner='\n\n', key='text'):
         with open(file, 'rb') as fh:
             cctx = zstandard.ZstdDecompressor()
@@ -256,7 +283,7 @@ class Reader:
                 rdr = jsonlines.Reader(reader)
                 yield from handle_jsonl(rdr, get_meta, autojoin_paragraphs, para_joiner, key)
                 f.close()
-            
+
     def read_owt(self, file):
         tar = tarfile.open(file, encoding='utf-8')
         utf8reader = codecs.getreader('utf-8')
@@ -283,19 +310,20 @@ class Archive:
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
         self.i = 0
-        
+
         self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
         self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=threads)
         self.compressor = self.cctx.stream_writer(self.fh)
-        
-    
+
     def add_data(self, data, meta={}):
-        self.compressor.write(json.dumps({'text': data, 'meta': meta}).encode('UTF-8') + b'\n')
-    
+        out_str = TextArchive.to_text(data)
+        self.compressor.write(json.dumps({'text': out_str, 'meta': meta}).encode('UTF-8') + b'\n')
+
     def commit(self, archive_name='default'):
-        fname = self.out_dir + '/data_' + str(self.i) + '_time' + str(int(time.time())) + '_' + archive_name + '.jsonl.zst'
+        fname = self.out_dir + '/data_' + str(self.i) + '_time' + str(
+            int(time.time())) + '_' + archive_name + '.jsonl.zst'
         self.compressor.flush(zstandard.FLUSH_FRAME)
-        
+
         self.fh.flush()
         self.fh.close()
         os.rename(self.out_dir + '/current_chunk_incomplete', fname)
@@ -313,10 +341,10 @@ class DatArchive:
         self.i = 0
         if os.path.exists(out_dir) and len(os.listdir(out_dir)) > 0:
             self.i = max(map(lambda x: int(x.split('_')[1].split('.')[0]), os.listdir(out_dir))) + 1
-    
+
     def add_data(self, data):
-        self.data.append(data)
-    
+        self.data.append(TextArchive.to_text(data))
+
     def commit(self, archive_name=None):
         # TODO: streaming
         cctx = zstandard.ZstdCompressor(level=3)
@@ -324,7 +352,8 @@ class DatArchive:
         if archive_name is None:
             archive_name = str(int(time.time()))
 
-        res = b''.join(map(lambda x: ("%016d" % len(x)).encode('UTF-8') + x, map(lambda x: x.encode('UTF-8'), self.data)))
+        res = b''.join(
+            map(lambda x: ("%016d" % len(x)).encode('UTF-8') + x, map(lambda x: x.encode('UTF-8'), self.data)))
         cdata = cctx.compress(res)
 
         with open(self.out_dir + '/data_' + str(self.i) + '_' + archive_name + '.dat.zst', 'wb') as fh:
@@ -332,6 +361,7 @@ class DatArchive:
 
         self.i += 1
         self.data = []
+
 
 class JSONArchive:
     def __init__(self, out_dir):
@@ -341,16 +371,51 @@ class JSONArchive:
         self.i = 0
         if os.path.exists(out_dir) and len(os.listdir(out_dir)) > 0:
             self.i = max(map(lambda x: int(x.split('_')[1].split('.')[0]), os.listdir(out_dir))) + 1
-    
+
     def add_data(self, data):
         self.data.append(data)
-    
-    def commit(self):
+
+    def commit(self, name):
         cctx = zstandard.ZstdCompressor(level=3)
-        
+
         cdata = cctx.compress(json.dumps(self.data).encode('UTF-8'))
         with open(self.out_dir + '/data_' + str(self.i) + '_' + str(int(time.time())) + '.json.zst', 'wb') as fh:
             fh.write(cdata)
 
         self.i += 1
+        self.data = []
+
+
+class TextArchive:
+    def __init__(self, out_dir):
+        self.out_dir = out_dir
+        os.makedirs(out_dir, exist_ok=True)
+        self.data = []
+
+    def add_data(self, data):
+        self.data.append(TextArchive.to_text(data))
+
+    @staticmethod
+    def to_text(data):
+        out_str = ""
+        out_str += 'Q:\n\n'
+        out_str += '{}\n\n'.format(data['question']['title'])
+        out_str += '{}\n\n'.format(data['question']['body'])
+        for answer in data['answers']:
+            out_str += 'A:\n\n{}\n\n'.format(answer['body'])
+
+        try:
+            out_str = filter_newlines(out_str)
+        except:
+            out_str = filter_newlines(handle_unicode_errors(out_str))
+
+        return out_str
+
+    def commit(self, archive_name):
+        fname = self.out_dir + '/data' + '_time' + str(int(time.time())) + '_' + archive_name + '.txt.zip'
+        with zipfile.ZipFile(fname, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for idx, example in enumerate(self.data):
+                filename = 'data_' + str(idx) + '_' + str(int(time.time())) + '.txt'
+                zipf.writestr(filename, example.encode('UTF-8'))
+
         self.data = []
