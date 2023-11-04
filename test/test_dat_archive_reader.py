@@ -10,7 +10,7 @@ def sha256str(s):
 
 def test_dat():
     archive = lmd.DatArchive('test_dir')
-    blns = open('test/blns.txt').read()
+    blns = open('test/resources/blns.txt').read()
     archive.add_data(blns)
     archive.add_data('testing 123')
     archive.add_data(blns)
@@ -29,12 +29,12 @@ def test_dat():
 
 def test_json():
     archive = lmd.JSONArchive('test_dir')
-    blns = open('test/blns.txt').read()
+    blns = open('test/resources/blns.txt').read()
     archive.add_data(blns)
     archive.add_data('testing 123')
     archive.add_data(blns)
     archive.add_data('testing 123456789')
-    archive.commit()
+    archive.commit("archive_name")
 
     reader = lmd.Reader('test_dir')
 
@@ -48,7 +48,7 @@ def test_json():
 
 def test_jsonl():
     archive = lmd.Archive('test_dir')
-    blns = open('test/blns.txt').read()
+    blns = open('test/resources/blns.txt').read()
     archive.add_data(blns)
     archive.add_data('testing 123', meta={'testing': 123})
     archive.add_data(blns, meta={'testing2': 456, 'testing': ['a','b']})
@@ -67,7 +67,7 @@ def test_jsonl():
 
 def test_jsonl_paras():
     archive = lmd.Archive('test_dir')
-    blns = open('test/blns.txt').read()
+    blns = open('test/resources/blns.txt').read()
     archive.add_data(blns)
     archive.add_data(['testing 123', 'testing 345'], meta={'testing': 123})
     archive.add_data(blns, meta={'testing2': 456, 'testing': ['a','b']})
@@ -85,8 +85,8 @@ def test_jsonl_paras():
     shutil.rmtree('test_dir')
 
 def test_jsonl_tar():
-    blns = open('test/blns.txt').read()
-    reader = lmd.Reader('test/blns.jsonl.zst.tar')
+    blns = open('test/resources/blns.txt').read()
+    reader = lmd.Reader('test/resources/blns.jsonl.zst.tar')
 
     data = list(reader.stream_data(get_meta=True))
 
@@ -101,8 +101,8 @@ def test_jsonl_tar():
     assert data[7] == ('testing 123456789', {})
 
 def test_txt_read():
-    reader = lmd.Reader('test/blns.txt')
-    blns = open('test/blns.txt').read()
+    reader = lmd.Reader('test/resources/blns.txt')
+    blns = open('test/resources/blns.txt').read()
 
     data = list(reader.stream_data(get_meta=False))
 
@@ -110,8 +110,8 @@ def test_txt_read():
     assert len(data) == 1
 
 def test_zip_read():
-    reader = lmd.Reader('test/blns.txt.zip')
-    blns = open('test/blns.txt').read()
+    reader = lmd.Reader('test/resources/blns.txt.zip')
+    blns = open('test/resources/blns.txt').read()
 
     data = list(reader.stream_data(get_meta=False))
 
@@ -119,8 +119,8 @@ def test_zip_read():
     assert len(data) == 1
 
 def test_tgz_read():
-    reader = lmd.Reader('test/blns.txt.tar.gz')
-    blns = open('test/blns.txt').read()
+    reader = lmd.Reader('test/resources/blns.txt.tar.gz')
+    blns = open('test/resources/blns.txt').read()
 
     data = list(reader.stream_data(get_meta=False))
 
@@ -128,7 +128,7 @@ def test_tgz_read():
     assert len(data) == 1
 
 def test_tarfile_reader():
-    rdr = lmd.tarfile_reader(open('test/testtarfile.tar', 'rb'), streaming=True)
+    rdr = lmd.tarfile_reader(open('test/resources/testtarfile.tar', 'rb'), streaming=True)
     
     hashes = map(lambda doc: sha256str(doc.read()), rdr)
 
