@@ -2,6 +2,8 @@
 
 Utilities for storing data for LM training.
 
+**NOTE**: The original project seems abandoned, I've continued the development to support ore data formats and integration with stackexchange_dataset
+
 
 ## Basic Usage
 
