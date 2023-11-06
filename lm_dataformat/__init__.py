@@ -362,7 +362,7 @@ class JSONArchive:
         self.data = []
         self.i = 0
         if os.path.exists(out_dir) and len(os.listdir(out_dir)) > 0:
-            self.i = max(map(lambda x: int(x.split('_')[1].split('.')[0]), os.listdir(out_dir))) + 1
+            self.i = max(map(lambda x: int(x.split('_')[1].split('.')[0]), filter(lambda y: y.endswith(".json.zst"), os.listdir(out_dir)))) + 1
 
     def add_data(self, data):
         self.data.append(data)
