@@ -356,36 +356,45 @@ class DatArchive:
 
 
 class JSONArchive:
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, compression_level=3, threads=8):
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
         self.data = []
         self.i = 0
-        if os.path.exists(out_dir) and len(os.listdir(out_dir)) > 0:
-            self.i = max(map(lambda x: int(x.split('_')[1].split('.')[0]), filter(lambda y: y.endswith(".json.zst"), os.listdir(out_dir)))) + 1
+        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
+        self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=threads)
+        self.compressor = self.cctx.stream_writer(self.fh)
 
     def add_data(self, data):
-        self.data.append(data)
+        self.compressor.write(json.dumps(data).encode('UTF-8') + b'\n')
+        # self.data.append(data)
 
     def commit(self, archive_name):
-        cctx = zstandard.ZstdCompressor(level=3)
+        fname = self.out_dir + '/data_' + str(self.i) + '_' + archive_name + '.json.zst'
+        self.compressor.flush(zstandard.FLUSH_FRAME)
 
-        cdata = cctx.compress(json.dumps(self.data).encode('UTF-8'))
-        with open(self.out_dir + '/data_' + str(self.i) + '_' + archive_name + '.json.zst', 'wb') as fh:
-            fh.write(cdata)
+        self.fh.flush()
+        self.fh.close()
+        os.rename(self.out_dir + '/current_chunk_incomplete', fname)
+        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
+        self.compressor = self.cctx.stream_writer(self.fh)
 
         self.i += 1
         self.data = []
 
 
 class TextArchive:
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, compression_level=3, threads=8):
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
         self.data = []
+        self.i = 0
+        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
+        self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=threads)
+        self.compressor = self.cctx.stream_writer(self.fh)
 
     def add_data(self, data):
-        self.data.append(TextArchive.to_text(data))
+        self.compressor.write(TextArchive.to_text(data).encode('UTF-8') + b'\n')
 
     @staticmethod
     def filter_newlines(text):
@@ -394,7 +403,6 @@ class TextArchive:
     @staticmethod
     def handle_unicode_errors(txt):
         return txt.encode('utf-8', 'replace').decode()
-
 
     @staticmethod
     def to_text(data):
@@ -413,10 +421,15 @@ class TextArchive:
         return out_str
 
     def commit(self, archive_name):
-        fname = self.out_dir + '/data' + '_' + archive_name + '.txt.zip'
-        with zipfile.ZipFile(fname, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for idx, example in enumerate(self.data):
-                filename = 'data_' + str(idx) + '_' + str(int(time.time())) + '.txt'
-                zipf.writestr(filename, example.encode('UTF-8'))
+        fname = self.out_dir + '/data' + '_' + archive_name + '.txt.zst'
 
+        self.compressor.flush(zstandard.FLUSH_FRAME)
+
+        self.fh.flush()
+        self.fh.close()
+        os.rename(self.out_dir + '/current_chunk_incomplete', fname)
+        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
+        self.compressor = self.cctx.stream_writer(self.fh)
+
+        self.i += 1
         self.data = []
