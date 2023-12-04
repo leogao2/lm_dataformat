@@ -19,14 +19,14 @@ import zstandard
 VALID_EXTENSIONS = ['openwebtext.tar.xz', '_data.xz', '.dat.zst', '.jsonl', '.jsonl.zst', '.jsonl.zst.tar', '.json.zst',
                     '.txt', '.zip', '.tar.gz', '.json.gz', '.gz']
 
-LM_DATAFORMAT_FORMAT = "lm_dataformat"
+# LM_DATAFORMAT_FORMAT = "lm_dataformat"
 TEXT_FORMAT = "txt"
-JSON_FORMAT = "json"
+JSONL_FORMAT = "jsonl"
 
 SUPPORTED_FORMATS = [
     TEXT_FORMAT,
-    LM_DATAFORMAT_FORMAT,
-    JSON_FORMAT
+    # LM_DATAFORMAT_FORMAT,
+    JSONL_FORMAT
 ]
 
 
@@ -355,45 +355,11 @@ class DatArchive:
         self.data = []
 
 
-class JSONArchive:
-    def __init__(self, out_dir, compression_level=3, threads=8):
-        self.out_dir = out_dir
-        os.makedirs(out_dir, exist_ok=True)
-        self.data = []
-        self.i = 0
-        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
-        self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=threads)
-        self.compressor = self.cctx.stream_writer(self.fh)
+class TextArchive(Archive):
+    def __init__(self, out_dir):
+        super().__init__(out_dir)
 
-    def add_data(self, data):
-        self.compressor.write(json.dumps(data).encode('UTF-8') + b'\n')
-        # self.data.append(data)
-
-    def commit(self, archive_name):
-        fname = self.out_dir + '/data_' + str(self.i) + '_' + archive_name + '.json.zst'
-        self.compressor.flush(zstandard.FLUSH_FRAME)
-
-        self.fh.flush()
-        self.fh.close()
-        os.rename(self.out_dir + '/current_chunk_incomplete', fname)
-        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
-        self.compressor = self.cctx.stream_writer(self.fh)
-
-        self.i += 1
-        self.data = []
-
-
-class TextArchive:
-    def __init__(self, out_dir, compression_level=3, threads=8):
-        self.out_dir = out_dir
-        os.makedirs(out_dir, exist_ok=True)
-        self.data = []
-        self.i = 0
-        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
-        self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=threads)
-        self.compressor = self.cctx.stream_writer(self.fh)
-
-    def add_data(self, data):
+    def add_data(self, data, **kwargs):
         self.compressor.write(TextArchive.to_text(data).encode('UTF-8') + b'\n')
 
     @staticmethod
@@ -419,17 +385,3 @@ class TextArchive:
             out_str = TextArchive.filter_newlines(TextArchive.handle_unicode_errors(out_str))
 
         return out_str
-
-    def commit(self, archive_name):
-        fname = self.out_dir + '/data' + '_' + archive_name + '.txt.zst'
-
-        self.compressor.flush(zstandard.FLUSH_FRAME)
-
-        self.fh.flush()
-        self.fh.close()
-        os.rename(self.out_dir + '/current_chunk_incomplete', fname)
-        self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
-        self.compressor = self.cctx.stream_writer(self.fh)
-
-        self.i += 1
-        self.data = []
