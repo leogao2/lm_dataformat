@@ -312,7 +312,8 @@ class Archive:
         self.compressor.write(json.dumps({'text': data, 'meta': meta}).encode('UTF-8') + b'\n')
 
     def commit(self, archive_name='default', extension="jsonl"):
-        fname = "{}/data_{}_time{}_{}.{}.zst".format(self.out_dir, str(self.i), str(int(time.time())), archive_name, extension)
+        fname = "{}/data_{}_time{}_{}.{}.zst".format(self.out_dir, str(self.i), str(int(time.time())), archive_name,
+                                                     extension)
         # fname = self.out_dir + '/data_' + str(self.i) + '_time' + str(int(time.time())) + '_' + archive_name + '.jsonl.zst'
         self.compressor.flush(zstandard.FLUSH_FRAME)
 
@@ -364,6 +365,7 @@ class TextArchive(Archive):
 
     def commit(self, archive_name='default', extension="txt"):
         super().commit(archive_name, extension)
+
     @staticmethod
     def filter_newlines(text):
         return re.sub("\n{3,}", "\n\n", text)
