@@ -303,6 +303,7 @@ class Archive:
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
         self.i = 0
+        self.time = int(time.time())
 
         self.fh = open(self.out_dir + '/current_chunk_incomplete', 'wb')
         self.cctx = zstandard.ZstdCompressor(level=compression_level, threads=threads)
@@ -312,7 +313,7 @@ class Archive:
         self.compressor.write(json.dumps({'text': data, 'meta': meta}).encode('UTF-8') + b'\n')
 
     def commit(self, archive_name='default', extension="jsonl"):
-        fname = "{}/data_{}_time{}_{}.{}.zst".format(self.out_dir, str(self.i), str(int(time.time())), archive_name,
+        fname = "{}/data_{}_time{}_{}.{}.zst".format(self.out_dir, str(self.i), str(self.time), archive_name,
                                                      extension)
         # fname = self.out_dir + '/data_' + str(self.i) + '_time' + str(int(time.time())) + '_' + archive_name + '.jsonl.zst'
         self.compressor.flush(zstandard.FLUSH_FRAME)
